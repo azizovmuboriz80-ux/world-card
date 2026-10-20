@@ -1,86 +1,89 @@
 <!DOCTYPE html>
-<html>
+<html lang="tg">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Super Map TJ</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Card - Душанбе</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-body{margin:0;font-family:sans-serif}
-#lang-screen{position:fixed;inset:0;background:#0f172a;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
-#lang-screen button{margin:10px;padding:15px 30px;width:200px;font-size:18px;border-radius:12px;border:none}
 #map{height:100vh;width:100%}
-#search{position:fixed;top:10px;left:10px;right:10px;z-index:1000;display:flex;gap:5px}
-#search input{flex:1;padding:12px;border-radius:10px;border:2px solid #333}
-#search button{padding:12px;border-radius:10px}
-#taxiBtn{position:fixed;bottom:20px;right:20px;z-index:1000;padding:15px 25px;background:yellow;border-radius:50px;font-weight:bold}
+body{margin:0}
+.top{position:absolute;top:10px;left:10px;z-index:1000;display:flex;gap:5px}
+.top input{padding:8px;width:200px;border-radius:8px;border:2px solid #333}
+.top button{padding:8px 12px;border-radius:8px;background:white;border:2px solid #333}
+#taxiBtn{position:absolute;bottom:80px;right:20px;z-index:1000;background:yellow;padding:12px 18px;border-radius:20px;font-weight:bold;border:2px solid black}
+.zoom{position:absolute;top:10px;left:5px;z-index:1000;display:flex;flex-direction:column}
+.zoom button{width:30px;height:30px;font-size:18px}
 </style>
 </head>
 <body>
-
-<div id="lang-screen">
-<h2>Забонро интихоб кун / Выберите язык</h2>
-<button onclick="setLang('tj')">Тоҷикӣ</button>
-<button onclick="setLang('ru')">Русский</button>
-<button onclick="setLang('en')">English</button>
-</div>
-
-<div id="search">
-<input id="q" placeholder="Давлат, шаҳр ҷустуҷӯ... / Поиск...">
-<button onclick="search()">🔍</button>
-<button onclick="locate()">📍 Ман куҷоям?</button>
-</div>
-
 <div id="map"></div>
-<button id="taxiBtn" onclick="taxi()">🚕 Такси - Роҳи наздик</button>
+<div class="top">
+<input id="search" placeholder="Аргентина">
+<button onclick="searchPlace()">🔍</button>
+<button onclick="findMe()">📍 Ман куҷоям?</button>
+</div>
+<div class="zoom">
+<button onclick="map.zoomIn()">+</button>
+<button onclick="map.zoomOut()">-</button>
+</div>
+<button id="taxiBtn" onclick="taxiMode()">🚖 Такси - Роҳи наздик</button>
 
 <script>
-let map, userMarker;
-function setLang(l){
- localStorage.setItem('lang', l);
- document.getElementById('lang-screen').style.display='none';
- initMap();
-}
-function initMap(){
- map = L.map('map').setView([38.5598, 68.7870], 13); // Душанбе
- L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
- // Худкор куҷо ҳастӣ
- locate();
- // Мағозаҳо, бонкҳо ва ғайраро нишон медиҳад (аз OpenStreetMap)
-}
+var map = L.map('map').setView([38.5598, 68.7870], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+var myMarker=null, routeLine=null;
+var taxiPoints=[];
 
-function locate(){
+function findMe(){
  if(navigator.geolocation){
-  navigator.geolocation.getCurrentPosition(pos=>{
-   let lat=pos.coords.latitude, lon=pos.coords.longitude;
-   map.setView([lat, lon], 17);
-   if(userMarker) map.removeLayer(userMarker);
-   userMarker = L.marker([lat, lon]).addTo(map).bindPopup("Шумо инҷоед! / Вы здесь!").openPopup();
+  navigator.geolocation.getCurrentPosition(function(p){
+   var lat=p.coords.latitude, lon=p.coords.longitude;
+   if(myMarker) map.removeLayer(myMarker);
+   myMarker=L.marker([lat,lon]).addTo(map).bindPopup("Ту ҳамин ҷоӣ!").openPopup();
+   map.setView([lat,lon], 18); // АНА ИН НАЗДИК МЕКУНАД - ЗУМ 18!
   });
- } else alert("GPS хомӯш аст");
+ }
 }
 
-function search(){
- let q=document.getElementById('q').value;
- fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`)
- .then(r=>r.json()).then(data=>{
-  if(data[0]){
-   map.setView([data[0].lat, data[0].lon], 16);
-   L.marker([data[0].lat, data[0].lon]).addTo(map).bindPopup(data[0].display_name).openPopup();
+async function searchPlace(){
+ let q=document.getElementById('search').value;
+ if(!q) return;
+ let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+ let data=await res.json();
+ if(data[0]){
+  map.setView([data[0].lat, data[0].lon], 18);
+  L.marker([data[0].lat, data[0].lon]).addTo(map);
+ }
+}
+
+function taxiMode(){
+ alert("Акнун 2 ҷойро дар харита пахш кун - роҳи наздикро мекашам!");
+ taxiPoints=[];
+ map.on('click', addTaxiPoint);
+}
+
+async function addTaxiPoint(e){
+ taxiPoints.push(e.latlng);
+ L.marker(e.latlng).addTo(map).bindPopup("Нуқта "+taxiPoints.length).openPopup();
+ if(taxiPoints.length==2){
+  map.off('click', addTaxiPoint);
+  // OSRM - роҳи наздикро мегирад
+  let url=`https://router.project-osrm.org/route/v1/driving/${taxiPoints[0].lng},${taxiPoints[0].lat};${taxiPoints[1].lng},${taxiPoints[1].lat}?overview=full&geometries=geojson`;
+  let res=await fetch(url);
+  let data=await res.json();
+  if(data.routes && data.routes[0]){
+   if(routeLine) map.removeLayer(routeLine);
+   routeLine=L.geoJSON(data.routes[0].geometry,{style:{color:'blue',weight:5}}).addTo(map);
+   let dist=(data.routes[0].distance/1000).toFixed(1);
+   alert(`Роҳи наздик: ${dist} км`);
   }
- });
+  taxiPoints=[];
+ }
 }
 
-function taxi(){
- alert("Функсияи такси: 2 нуқта интихоб кун - роҳи бе пробкаро мекашам (OSRM). Инро дар версияи 2 илова мекунем!");
-}
-
-// Агар забон қаблан интихоб шуда бошад
-if(localStorage.getItem('lang')){
- document.getElementById('lang-screen').style.display='none';
- initMap();
-}
+findMe();
 </script>
 </body>
 </html>
