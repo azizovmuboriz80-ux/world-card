@@ -2,29 +2,31 @@
 <html lang="tg">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>World Card V3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Card V4 - Спутник</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 html,body{margin:0;padding:0;height:100%}
-#map{height:100vh;width:100%;z-index:1}
-.controls{position:absolute;top:10px;left:10px;z-index:1000;display:flex;gap:5px;background:white;padding:6px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.3)}
-.controls input{padding:10px;width:160px;border-radius:8px;border:1px solid #999;font-size:16px}
-.controls button{padding:10px 12px;border-radius:8px;border:1px solid #333;background:#fff;font-weight:bold}
+#map{height:100vh;width:100%}
+.controls{position:absolute;top:10px;left:10px;z-index:1000;background:white;padding:8px;border-radius:12px;display:flex;gap:5px;box-shadow:0 2px 8px #0003}
+.controls input{padding:10px;width:130px;border-radius:8px;border:1px solid #999}
+.controls button{padding:10px;border-radius:8px;border:1px solid #333;background:#fff;font-weight:bold}
 #meBtn{background:#4CAF50;color:white;border:none}
-#taxiBtn{position:absolute;bottom:90px;right:15px;z-index:1000;background:#FFEB3B;padding:14px 20px;border-radius:30px;font-weight:bold;border:2px solid black;box-shadow:0 4px 10px rgba(0,0,0,0.3)}
-.zoomBox{position:absolute;top:70px;left:12px;z-index:1000;display:flex;flex-direction:column;gap:2px}
-.zoomBox button{width:40px;height:40px;font-size:24px;border-radius:8px;border:1px solid #333;background:white}
+#layerBtn{position:absolute;top:70px;right:15px;z-index:1000;background:white;padding:10px 14px;border-radius:20px;font-weight:bold;border:2px solid black}
+#taxiBtn{position:absolute;bottom:90px;right:15px;z-index:1000;background:#FFEB3B;padding:14px 20px;border-radius:30px;font-weight:bold;border:2px solid black}
+.zoomBox{position:absolute;top:70px;left:12px;z-index:1000;display:flex;flex-direction:column}
+.zoomBox button{width:40px;height:40px;font-size:22px;border-radius:8px;border:1px solid #333;background:white}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="controls">
-<input id="search" placeholder="Ҷустуҷӯ...">
+<input id="search" placeholder="Ҷустуҷӯ">
 <button onclick="searchPlace()">🔍</button>
-<button id="meBtn" onclick="findMe()">📍 Ман дар куҷоям?</button>
+<button id="meBtn" onclick="findMe()">📍 Куҷоям?</button>
 </div>
+<button id="layerBtn" onclick="toggleLayer()">🛰️ Спутник</button>
 <div class="zoomBox">
 <button onclick="map.zoomIn()">+</button>
 <button onclick="map.zoomOut()">−</button>
@@ -32,31 +34,35 @@ html,body{margin:0;padding:0;height:100%}
 <button id="taxiBtn" onclick="startTaxi()">🚖 Такси</button>
 
 <script>
-var map = L.map('map', {zoomControl:false}).setView([38.5598,68.7870], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  maxZoom: 22,
-  maxNativeZoom: 19,
-  minZoom: 3
-}).addTo(map);
+var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:22,maxNativeZoom:19});
+var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:22,maxNativeZoom:19, attribution:'Esri'});
 
-var myMarker=null, routeLine=null, taxiMarkers=[];
-var taxiPoints=[];
-var taxiActive=false;
+var map = L.map('map',{zoomControl:false,layers:[osm]}).setView([38.5598,68.7870], 13);
+var isSatellite=false;
+
+function toggleLayer(){
+  if(isSatellite){
+    map.removeLayer(satellite); map.addLayer(osm);
+    document.getElementById('layerBtn').innerText='🛰️ Спутник';
+    isSatellite=false;
+  } else {
+    map.removeLayer(osm); map.addLayer(satellite);
+    document.getElementById('layerBtn').innerText='🗺️ Харита';
+    isSatellite=true;
+  }
+}
+
+var myMarker=null, routeLine=null, taxiMarkers=[], taxiPoints=[], taxiActive=false;
 
 function findMe(){
-  if(!navigator.geolocation){
-    alert("GPS дастгирӣ намешавад!");
-    return;
-  }
-  // Ин муҳим аст - браузер иҷозат мепурсад
   navigator.geolocation.getCurrentPosition(function(p){
     var lat=p.coords.latitude, lon=p.coords.longitude;
     if(myMarker) map.removeLayer(myMarker);
-    myMarker=L.marker([lat,lon]).addTo(map).bindPopup("Ту ҳамин ҷоӣ! 📍").openPopup();
-    map.setView([lat,lon], 20); // АНА ИН 20-22!
-  }, function(err){
-    alert("Лутфан GPS-ро фаъол кун ва иҷозат диҳед: " + err.message);
-  }, {enableHighAccuracy:true, timeout:10000});
+    myMarker=L.marker([lat,lon]).addTo(map).bindPopup("Ту ҳамин ҷоӣ!").openPopup();
+    // Агар хоҳӣ хонаат дида шавад, автоматӣ ба спутник мегузарад
+    if(!isSatellite) toggleLayer();
+    map.setView([lat,lon], 20);
+  }, function(e){alert("GPS фаъол кун: "+e.message);},{enableHighAccuracy:true});
 }
 
 async function searchPlace(){
@@ -64,55 +70,30 @@ async function searchPlace(){
   if(!q) return;
   let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
   let data=await res.json();
-  if(data[0]){
-    map.setView([data[0].lat, data[0].lon], 20);
-    L.marker([data[0].lat, data[0].lon]).addTo(map);
-  } else {
-    alert("Ҷой ёфт нашуд");
-  }
+  if(data[0]){ map.setView([data[0].lat,data[0].lon], 19); L.marker([data[0].lat,data[0].lon]).addTo(map); }
 }
 
 function startTaxi(){
-  taxiActive=true;
-  taxiPoints=[];
-  // Тоза кардани кӯҳна
-  taxiMarkers.forEach(m=>map.removeLayer(m));
-  taxiMarkers=[];
-  if(routeLine) map.removeLayer(routeLine);
-  alert("Такси фаъол! Акнун 2 ҷойро дар харита пахш кун:\n1. Аз куҷо\n2. То куҷо");
+  taxiActive=true; taxiPoints=[]; taxiMarkers.forEach(m=>map.removeLayer(m)); taxiMarkers=[]; if(routeLine) map.removeLayer(routeLine);
+  alert("2 ҷой пахш кун: Аз куҷо - То куҷо");
   map.on('click', addTaxiPoint);
 }
-
 async function addTaxiPoint(e){
-  if(!taxiActive) return;
   taxiPoints.push(e.latlng);
-  var m=L.marker(e.latlng).addTo(map).bindPopup(taxiPoints.length==1 ? "Аз ин ҷо" : "То ин ҷо").openPopup();
+  var m=L.marker(e.latlng).addTo(map).bindPopup(taxiPoints.length==1?"Аз":"То").openPopup();
   taxiMarkers.push(m);
-  
   if(taxiPoints.length==2){
-    map.off('click', addTaxiPoint);
-    taxiActive=false;
-    // Роҳи воқеӣ аз OSRM
+    map.off('click', addTaxiPoint); taxiActive=false;
     try{
       let url=`https://router.project-osrm.org/route/v1/driving/${taxiPoints[0].lng},${taxiPoints[0].lat};${taxiPoints[1].lng},${taxiPoints[1].lat}?overview=full&geometries=geojson`;
-      let res=await fetch(url);
-      let data=await res.json();
+      let res=await fetch(url); let data=await res.json();
       if(data.routes && data.routes[0]){
-        if(routeLine) map.removeLayer(routeLine);
-        routeLine=L.geoJSON(data.routes[0].geometry,{style:{color:'blue',weight:6}}).addTo(map);
+        routeLine=L.geoJSON(data.routes[0].geometry,{style:{color:'yellow',weight:6}}).addTo(map);
         let dist=(data.routes[0].distance/1000).toFixed(2);
-        let dur=(data.routes[0].duration/60).toFixed(0);
-        alert(`✅ Роҳ ёфт шуд!\nМасофа: ${dist} км\nВақт: ${dur} дақиқа`);
-        map.fitBounds(routeLine.getBounds(), {padding:[50,50]});
-      } else {
-        alert("Роҳ ёфт нашуд, хати рост мекашам");
-        if(routeLine) map.removeLayer(routeLine);
-        routeLine=L.polyline(taxiPoints, {color:'blue', weight:5}).addTo(map);
+        alert(`Роҳ: ${dist} км`);
+        map.fitBounds(routeLine.getBounds(),{padding:[40,40]});
       }
-    } catch(er){
-      alert("Интернет суст аст, хати рост кашидам");
-      routeLine=L.polyline(taxiPoints, {color:'blue', weight:5}).addTo(map);
-    }
+    }catch{ routeLine=L.polyline(taxiPoints,{color:'yellow',weight:6}).addTo(map); }
     taxiPoints=[];
   }
 }
