@@ -97,7 +97,7 @@ async function addTaxiPoint(e){
   if(taxiPoints.length==2){
     map.off('click', addTaxiPoint);
     try{
-      let url=`https://router.project-osrm.org/route/v1/driving/${taxiPoints[0].lng},${taxiPoints[0].lat};${taxiPoints[1].lng},${taxiPoints[1].lat}?overview=full&geometries=geojson`;
+      let url=`https://router.project-osrm.org/route/v1/foot/${taxiPoints[0].lng},${taxiPoints[0].lat};${taxiPoints[1].lng},${taxiPoints[1].lat}?overview=full&geometries=geojson`;
       let res=await fetch(url); let data=await res.json();
       if(data.routes && data.routes[0]){
         // Ду хат - یکی сафед барои дида шудан дар спутник
