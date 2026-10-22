@@ -6,6 +6,7 @@
 <title>World Card V5 - Навтарин Спутник</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="manifest" href="./manifest.json">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js')}</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 html,body{margin:0;height:100%} #map{height:100vh;width:100%}
@@ -62,38 +63,56 @@ function changeLayer(){
   map.addLayer(currentLayer);
 }
 
-var myMarker=null, routeLine=null, taxiMarkers=[], taxiPoints=[], taxiActive=false;
+var myMarker=null, routeLine=null, routeLineBg=null, taxiMarkers=[], taxiPoints=[];
 
 function findMe(){
   navigator.geolocation.getCurrentPosition(function(p){
     if(myMarker) map.removeLayer(myMarker);
-    myMarker=L.marker([p.coords.latitude,p.coords.longitude]).addTo(map).bindPopup("Ту ҳамин ҷоӣ!").openPopup();
-    map.setView([p.coords.latitude,p.coords.longitude], 20);
-  },function(e){alert("GPS фаъол кун");},{enableHighAccuracy:true});
+    var acc = Math.round(p.coords.accuracy);
+    myMarker=L.marker([p.coords.latitude,p.coords.longitude]).addTo(map)
+    .bindPopup("Ту ҳамин ҷоӣ!<br>Дақиқӣ: " + acc + " метр<br>" + (acc>50?"Дар кушодӣ баромада санҷ!":"Дақиқ аст!")).openPopup();
+    map.setView([p.coords.latitude,p.coords.longitude], 17);
+  },function(e){alert("GPS-ро фаъол кун ва Allow пахш кун!");},{enableHighAccuracy:true, timeout:15000, maximumAge:0});
 }
+
 async function searchPlace(){
   let q=document.getElementById('search').value; if(!q) return;
-  let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
-  let data=await res.json(); if(data[0]){ map.setView([data[0].lat,data[0].lon], 19); L.marker([data[0].lat,data[0].lon]).addTo(map); }
+  let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`);
+  let data=await res.json(); if(data[0]){ map.setView([data[0].lat,data[0].lon], 18); L.marker([data[0].lat,data[0].lon]).addTo(map); }
 }
+
 function startTaxi(){
-  taxiActive=true; taxiPoints=[]; taxiMarkers.forEach(m=>map.removeLayer(m)); taxiMarkers=[]; if(routeLine) map.removeLayer(routeLine);
-  alert("2 ҷой пахш кун");
+  taxiPoints=[]; 
+  taxiMarkers.forEach(m=>map.removeLayer(m)); taxiMarkers=[];
+  if(routeLine) map.removeLayer(routeLine);
+  if(routeLineBg) map.removeLayer(routeLineBg);
+  alert("2 ҷой пахш кун: 1-Аз куҷо, 2-Ба куҷо");
   map.on('click', addTaxiPoint);
 }
+
 async function addTaxiPoint(e){
-  taxiPoints.push(e.latlng); var m=L.marker(e.latlng).addTo(map).bindPopup(taxiPoints.length==1?"Аз":"То").openPopup(); taxiMarkers.push(m);
+  taxiPoints.push(e.latlng); 
+  var m=L.marker(e.latlng).addTo(map).bindPopup(taxiPoints.length==1?"Аз инҷо":"Ба инҷо").openPopup(); 
+  taxiMarkers.push(m);
   if(taxiPoints.length==2){
-    map.off('click', addTaxiPoint); taxiActive=false;
+    map.off('click', addTaxiPoint);
     try{
       let url=`https://router.project-osrm.org/route/v1/driving/${taxiPoints[0].lng},${taxiPoints[0].lat};${taxiPoints[1].lng},${taxiPoints[1].lat}?overview=full&geometries=geojson`;
       let res=await fetch(url); let data=await res.json();
       if(data.routes && data.routes[0]){
-        routeLine=L.geoJSON(data.routes[0].geometry,{style:{color:'yellow',weight:6}}).addTo(map);
-        let dist=(data.routes[0].distance/1000).toFixed(2); alert(`Роҳ: ${dist} км`);
-        map.fitBounds(routeLine.getBounds(),{padding:[40,40]});
+        // Ду хат - یکی сафед барои дида шудан дар спутник
+        routeLineBg=L.geoJSON(data.routes[0].geometry,{style:{color:'white',weight:10,opacity:0.9}}).addTo(map);
+        routeLine=L.geoJSON(data.routes[0].geometry,{style:{color:'#0066FF',weight:6}}).addTo(map);
+        let dist=(data.routes[0].distance/1000).toFixed(2); 
+        let dur=Math.round(data.routes[0].duration/60);
+        alert(`Роҳи наздик: ${dist} км, Вақт: ${dur} дақ`);
+        map.fitBounds(routeLine.getBounds(),{padding:[50,50]});
+      } else {
+        alert("Роҳ ёфт нашуд, дубора пахш кун");
       }
-    }catch{ routeLine=L.polyline(taxiPoints,{color:'yellow',weight:6}).addTo(map); }
+    }catch(err){ 
+      alert("Интернет суст аст, дубора санҷ");
+    }
     taxiPoints=[];
   }
 }
